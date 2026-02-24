@@ -15,6 +15,11 @@ import { ChatMessage, ExamplePrompt } from "../types";
 
 const DEFAULT_EXAMPLES: ExamplePrompt[] = [
   {
+    title: "Vision to Tailwind",
+    prompt: "Convert this UI design into a pixel-perfect, responsive React component using Tailwind CSS. Analyze the blueprint/layout with perfect detail. Extract colors, typography, spacing, and structural hierarchy.",
+    image: "https://picsum.photos/seed/dashboard/800/600"
+  },
+  {
     title: "Visual Thoughts",
     prompt: "Crop out all the animals, and use them as icons in a matplotlib plot showing the lifespan of those animals. Sort by lifespan.",
     image: "https://raw.githubusercontent.com/nannanxia-art/gemini-thinking/refs/heads/main/animals.jpg"
@@ -23,11 +28,6 @@ const DEFAULT_EXAMPLES: ExamplePrompt[] = [
     title: "Visual Thoughts",
     prompt: "Analyze where the mug, glass, and bowl will go? Annotate them on the image with boxes and arrows and save the image.",
     image: "https://raw.githubusercontent.com/nannanxia-art/gemini-thinking/refs/heads/main/spatial2_min.jpeg"
-  },
-  {
-    title: "Visual Thoughts",
-    prompt: "How many gears are there? Zoom in to see.",
-    image: "https://raw.githubusercontent.com/nannanxia-art/gemini-thinking/refs/heads/main/spatial3_orig_min.jpeg"
   }
 ];
 
@@ -403,7 +403,10 @@ export const ChatInterface: React.FC = () => {
     setIsLoading(true);
     
     // Construct user message parts
-    const userParts: Part[] = [{ text }];
+    const userParts: Part[] = [];
+    if (text) {
+      userParts.push({ text });
+    }
     if (image) {
       const match = image.match(/^data:(.+);base64,(.+)$/);
       if (match) {
@@ -414,6 +417,9 @@ export const ChatInterface: React.FC = () => {
           },
         });
       }
+    }
+    if (userParts.length === 0) {
+      userParts.push({ text: " " });
     }
 
     const userMessage: ChatMessage = {
@@ -427,12 +433,11 @@ export const ChatInterface: React.FC = () => {
 
     try {
       // Prepare history for the API
-      const history: Content[] = messages.map((msg) => ({
-        role: msg.role,
-        parts: msg.parts.map(p => {
+      const history: Content[] = messages.map((msg) => {
+        const cleanParts = msg.parts.map(p => {
              // Create a clean part object for the API
              const part: Part = {};
-             if (p.text) part.text = p.text;
+             if (p.text !== undefined && p.text !== "") part.text = p.text;
              if (p.inlineData) part.inlineData = p.inlineData;
              if (p.functionCall) part.functionCall = p.functionCall;
              if (p.functionResponse) part.functionResponse = p.functionResponse;
@@ -441,8 +446,13 @@ export const ChatInterface: React.FC = () => {
              // @ts-ignore
              if (p.codeExecutionResult) part.codeExecutionResult = p.codeExecutionResult;
              return part;
-        }),
-      }));
+        }).filter(p => Object.keys(p).length > 0);
+        
+        return {
+          role: msg.role,
+          parts: cleanParts.length > 0 ? cleanParts : [{ text: " " }]
+        };
+      });
 
       const streamResult = await sendMessageStream(text, history, image);
 
@@ -563,7 +573,7 @@ export const ChatInterface: React.FC = () => {
         
         <div>
           <h1 className="font-bold text-xl text-gray-800">Gemini Chat with Agentic Vision</h1>
-          <p className="text-xs text-gray-500 font-medium">Gemini 3 Flash</p>
+          <p className="text-xs text-gray-500 font-medium">Gemini 3.1 Pro</p>
         </div>
 
         <div className="flex-1"></div>
@@ -593,7 +603,7 @@ export const ChatInterface: React.FC = () => {
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome to Gemini Chat with Agentic Vision!</h2>
               <p className="text-gray-500 max-w-md mb-8">
-                Try agentic vision with Gemini 3 Flash
+                Try agentic vision with Gemini 3.1 Pro
               </p>
 
               {examples.length > 0 && (
